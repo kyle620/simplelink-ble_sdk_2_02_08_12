@@ -2,17 +2,51 @@ cmake_minimum_required(VERSION 3.28)
 
 project(ble_sdk_2_02_08_12 VERSION 2.2.8.12 LANGUAGES C)
 
-# Include the shared file for Cortex-M3 settings
-include("cmake/logic_modules/cortex-m3.cmake")
+include_guard(GLOBAL)
 
-# Inlclude the shared file for CC2650-specific settings
+# Include shared architecture/chip settings
+include("cmake/logic_modules/cortex-m3.cmake")
 include("cmake/logic_modules/cc2650-ti-cgt.cmake")
 
-# Include the function for handling TIRTOS configuration
-include("cmake/external_libraries/TIRTOS-Config.cmake")
+# ─── Pre-built BLE Stack Libraries ──────────────────────────────────────────
+add_library(ble_host STATIC IMPORTED GLOBAL)
+set_target_properties(ble_host PROPERTIES
+    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/blelib/host/host_pxxx.a"
+)
 
-# ─── Compile Definitions ────────────────────────────────────────────────────
-target_compile_definitions(ble_sdk_2_02_08_12 PRIVATE
+add_library(ble_ctrl STATIC IMPORTED GLOBAL)
+set_target_properties(ble_ctrl PROPERTIES
+    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/blelib/ctrl/cc2640/cc2640_ctrl_pxxx.a"
+)
+
+add_library(ble_hci_tl STATIC IMPORTED GLOBAL)
+set_target_properties(ble_hci_tl PROPERTIES
+    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/blelib/hci_tl/cc26xx/cc26xx_hci_tl_none.a"
+)
+
+# ─── Gather Sources (profiles, icall, common — NOT the core stack) ───────────
+file(GLOB_RECURSE BLE_SDK_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/common/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/components/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/config/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/icall/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/profiles/*.c"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/target/*.c"
+)
+
+# ─── Gather Include Directories Recursively ──────────────────────────────────
+file(GLOB_RECURSE BLE_SDK_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h")
+list(TRANSFORM BLE_SDK_HEADERS REPLACE "/[^/]+\\.h$" "" OUTPUT_VARIABLE BLE_SDK_INCLUDE_DIRS)
+list(REMOVE_DUPLICATES BLE_SDK_INCLUDE_DIRS)
+
+# ─── Main Library Target ─────────────────────────────────────────────────────
+add_library(${PROJECT_NAME} STATIC ${BLE_SDK_SOURCES})
+
+# ─── Include Directories ─────────────────────────────────────────────────────
+target_include_directories(${PROJECT_NAME} PUBLIC ${BLE_SDK_INCLUDE_DIRS})
+
+# ─── Compile Definitions ─────────────────────────────────────────────────────
+target_compile_definitions(${PROJECT_NAME} PRIVATE
     BOARD_DISPLAY_EXCLUDE_UART
     CC2650DK_7ID
     CC26XX
@@ -28,9 +62,8 @@ target_compile_definitions(ble_sdk_2_02_08_12 PRIVATE
     xdc_runtime_Log_DISABLE_ALL
 )
 
-# ─── TI-CGT Compiler Flags ──────────────────────────────────────────────────
-target_compile_options(ble_sdk_2_02_08_12 PRIVATE
-    -g
+# ─── Compiler Flags ──────────────────────────────────────────────────────────
+target_compile_options(${PROJECT_NAME} PRIVATE
     --c99
     --gcc
     --diag_suppress=48
@@ -38,38 +71,13 @@ target_compile_options(ble_sdk_2_02_08_12 PRIVATE
     --diag_wrap=off
     --display_error_number
     --gen_func_subsections=on
-    --abi=eabi
 )
 
-# ─── Gather Sources ─────────────────────────────────────────────────────────
-file(GLOB_RECURSE BLE_SDK_SOURCES
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/boards/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/common/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/components/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/config/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/controller/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/host/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/icall/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/inc/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/profiles/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/rom/*.c"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/target/*.c"
-)
-
-# ─── Static Library Target ──────────────────────────────────────────────────
-add_library(ble_sdk_2_02_08_12 STATIC ${BLE_SDK_SOURCES})
-
-# ─── Include Directories ────────────────────────────────────────────────────
-target_include_directories(ble_sdk_2_02_08_12 PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/inc"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/boards"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/common"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/components"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/config"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/controller"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/host"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/icall"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/profiles"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/rom"
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/target"
+# ─── Link Everything Together ────────────────────────────────────────────────
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    ble_host
+    ble_ctrl
+    ble_hci_tl
+    cortex_m3_opts
+    cc2650_config
 )
