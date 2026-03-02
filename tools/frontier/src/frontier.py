@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 '''
 /******************************************************************************
  @file  frontier.py
@@ -11,10 +11,8 @@
         be used by the corresponding application project to prevent the two
         images from overlapping.
 
-        This script was tested using Python v2.7 32bit for Windows. An
-        equivalent Windows executable is provided which was created using
-        py2exe. For all other systems this script is provided as a starting
-        point and is not guaranteed to work.
+        This script has been updated for Python 3 compatibility.
+ Original script was tested using Python v2.7 32bit for Windows.
 
  Group: WCS, BTS
  Target Device: CC2650, CC2640
@@ -123,7 +121,7 @@ def parseXML(xml):
 
     # Search for Flash and RAM Boundaries
     for section in sections:
-        for node in section.getchildren():
+        for node in list(section):
             if node.tag == 'name':
                 if node.text == 'FLASH':
                     # Flash section found, get address
@@ -141,7 +139,7 @@ def parseXML(xml):
     # Search for startup_entry
     objectSectionsName = linkerInfo.findall('symbol_table/symbol')
     for section in objectSectionsName:
-        for node in section.getchildren():
+        for node in list(section):
             if node.tag == 'name':
                 if node.text == 'startup_entry':
                     # We found the entry section, let's read the value
@@ -223,8 +221,8 @@ def main():
             f_cdef.write("\n")
             f_ldef.write("\n")
 
-            f_cdef.close
-            f_ldef.close
+            f_cdef.close()
+            f_ldef.close()
 
     except (IOError, ValueError) as ex:
         sys.stderr.write("Error: " + str(ex))
